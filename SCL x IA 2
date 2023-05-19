@@ -1,0 +1,103 @@
+Deteccion y explulsion de botellas sin tapas
+PROGRAM Embotellado
+VAR
+    BotellaSinTapon: BOOL;                      // Detector inductivo para los tapones
+    SensorFotoelectrico: BOOL;                   // Detector fotoeléctrico para las botellas
+    PulsadorMarcha: BOOL;                        // Pulsador de marcha
+    PulsadorRearme: BOOL;                        // Pulsador de rearme
+    Cinta1: BOOL;                                // Motor de la cinta 1
+    Cinta2: BOOL;                                // Motor de la cinta 2
+    MecanismoExpulsion: BOOL;                    // Mecanismo de expulsión
+    Alarma: BOOL;                                // Alarma
+    ContadorBotellasDefectuosas: INT;            // Contador de botellas defectuosas
+    TemporizadorExpulsion: TON;                  // Temporizador para la expulsión
+    TiempoEsperaExpulsion: TIME := T#5S;          // Tiempo de espera para la expulsión
+END_VAR
+
+NETWORK 1:
+    // Detectar botellas sin tapón y contarlas
+    // Activar la cinta 2 y el mecanismo de expulsión
+    
+    // Lógica para detectar botellas sin tapón
+    IF BotellaSinTapon THEN
+        // Incrementar contador de botellas defectuosas
+        ContadorBotellasDefectuosas := ContadorBotellasDefectuosas + 1;
+        
+        // Activar cinta 2 y mecanismo de expulsión
+        Cinta2 := TRUE;
+        MecanismoExpulsion := TRUE;
+    ELSE
+        // Reiniciar contador de botellas defectuosas
+        ContadorBotellasDefectuosas := 0;
+        
+        // Desactivar cinta 2 y mecanismo de expulsión
+        Cinta2 := FALSE;
+        MecanismoExpulsion := FALSE;
+    END_IF;
+
+NETWORK 2:
+    // Control de alarma por botellas defectuosas consecutivas
+    
+    // Verificar si se han detectado más de 3 botellas defectuosas consecutivas
+    IF ContadorBotellasDefectuosas > 3 THEN
+        // Activar alarma
+        Alarma := TRUE;
+    ELSE
+        // Desactivar alarma
+        Alarma := FALSE;
+    END_IF;
+
+NETWORK 3:
+    // Control de inicio y reinicio del sistema
+    
+    // Iniciar el sistema con el pulsador de marcha (M)
+    IF PulsadorMarcha THEN
+        // Activar cinta 1
+        Cinta1 := TRUE;
+        
+        // Desactivar alarma
+        Alarma := FALSE;
+    END_IF;
+    
+    // Reiniciar el sistema con el pulsador de rearme (PC)
+    IF PulsadorRearme THEN
+        // Reiniciar contador de botellas defectuosas
+        ContadorBotellasDefectuosas := 0;
+        
+        // Desactivar alarma
+        Alarma := FALSE;
+        
+        // Activar cinta 1
+        Cinta1 := TRUE;
+    END_IF;
+
+NETWORK 4:
+    // Control de detección de botellas
+    
+    // Detección de presencia de botellas en la cinta 1
+    IF SensorFotoelectrico THEN
+        // Se ha detectado una botella
+        
+        // Resetear temporizador de expulsión
+        TemporizadorExpulsion(IN := FALSE);
+    ELSE
+        // No se ha detectado ninguna botella
+        
+        // Iniciar temporizador de expulsión
+        TemporizadorExpulsion(IN := TRUE, PT := TiempoEsperaExpulsion);
+    END_IF;
+
+NETWORK 5:
+    // Control de expulsión de botellas defectuosas
+    
+    // Temporizador para la expulsión
+    TemporizadorExpulsion();
+
+    // Cuando el temporizador alcanza su tiempo de espera
+    IF TemporizadorExpulsion.Q THEN
+        // Activar mecanismo de expulsión
+        MecanismoExpulsion := TRUE;
+        
+        // Detener cinta 2 después de un giro de 90 grados
+        TemporizadorExpulsion(IN := FALSE);
+    END_IF;
